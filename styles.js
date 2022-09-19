@@ -62,6 +62,8 @@ function injectStylesForChildDocument() {
         }
         table{
           width:90%;
+          table-layout: fixed;
+          overflow-wrap: break-word;
         }
         td{
           border:1px solid #000000;

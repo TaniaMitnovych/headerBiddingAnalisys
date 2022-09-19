@@ -42,7 +42,6 @@ function createTable(tableHeaders = [], tableID="") {
 }
 
 function injectStylesForParentDocument() {
-  //headerBiddingAnalisysButtonStyles();
   let style = document.createElement("style");
   style.innerHTML = `
       @import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap');
@@ -105,10 +104,12 @@ function injectStylesForChildDocument() {
         .iframe__header-bidding-analisys h2 {
           text-align:center;
         }
-        .iframe__header-bidding-analisys table{
+        table{
           width:90%;
+          table-layout: fixed;
+          overflow-wrap: break-word;
         }
-        .iframe__header-bidding-analisys td{
+        td{
           border:1px solid #000000;
           padding:10px;
         }
