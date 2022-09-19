@@ -1,6 +1,6 @@
 import './MonkeyPatchFetch';
 import './styles';
-
+import './UIcomponents';
 
 function init() {
   window.addEventListener('load', (event) => {
