@@ -1,89 +1,58 @@
-window.addEventListener('load', (event) => {
-  console.log("init");
-  //showInfo();
-  createButton();
-});
+import './MonkeyPatchFetch';
+import './styles';
+
 
 function init() {
-
+  window.addEventListener('load', (event) => {
+    createButton(
+      "button__header-bidding-analisys",
+      "button__header-bidding-analisys",
+      document,
+      showInfo, 
+      "Show header bidding analisys");
+      injectStylesForParentDocument();
+  });
 }
+init();
 
-function createButton() {
-  let button = document.createElement("button");
-  document.body.appendChild(button);
-  button.type = "button";
-  button.style.width = "100px";
-  button.style.height = "50px";
-  button.style.backgroundColor = "red";
-  button.style.position = "fixed";
-  button.style.bottom = "100px";
-  button.style.right = "10px";
-  button.onclick = showInfo;
-}
-function closeButton() {
-  let button = document.createElement("button");
-  document.appendChild(button);
-
-  button.type = "button";
-  button.style.width = "50px";
-  button.style.height = "50px";
-  button.style.backgroundColor = "blue";
-  button.style.position = "fixed";
-  button.style.bottom = "10px";
-  button.style.right = "10px";
-  button.onclick = showInfo;
-}
 function showInfo() {
   let iframe = createIframe("iframe__header-bidding-analisys");
-  let adUnitsInfoTable = createTable(["Ad unit code", "Sizes", "Bidders", "Ad unit path"]);
-  let biddersInfoTable=createTable(["Bidder name", "CPM", "Currency", "Size"]);
-  iframe.contentWindow.document.body.appendChild(adUnitsInfoTable);
-  iframe.contentWindow.document.body.appendChild(biddersInfoTable);
+
+  let adUnitsInfoTable = createTable(["Ad unit code", "Sizes", "Bidders", "Ad unit path"], "iframe__ad-units-table");
+  let biddersInfoTable = createTable(["Bidder name", "CPM", "Currency", "Size"], "iframe__ssp-list-table");
 
   if (typeof pbjs !== "undefined" && window.googletag && googletag.apiReady) {
+    iframe.contentWindow.document.body.appendChild(adUnitsInfoTable);
+    iframe.contentWindow.document.body.appendChild(biddersInfoTable);
     let adUnits = pbjs.adUnits;
     let GPTSlots = googletag.pubads().getSlots();
-    let AdUnitPathDictionary=getAdUnitPathDictionary(GPTSlots);
+    let AdUnitPathDictionary = getAdUnitPathDictionary(GPTSlots);
+    if(adUnits.length===0){
+      iframe.contentWindow.document.body.appendChild(document.createTextNode("Nothing was found"));
+    }
     for (let i = 0; i < adUnits.length; i++) {
       adUnitsInfoTable = appendadUnitInfoIntoTable(adUnitsInfoTable, adUnits[i], AdUnitPathDictionary[adUnits[i].code]);
     }
     let bidders = pbjs.getAllWinningBids();
+    if(bidders.length===0){
+      iframe.contentWindow.document.body.appendChild(document.createTextNode("Nothing was found"));
+    }
     for (let i = 0; i < bidders.length; i++) {
-      biddersInfoTable=appendBiddersInfoIntoTable(biddersInfoTable,bidders[i]);
+      biddersInfoTable = appendBiddersInfoIntoTable(biddersInfoTable, bidders[i]);
     }
   } else {
-    console.log("nothing was found");
+    iframe.contentWindow.document.body.appendChild(document.createTextNode("Nothing was found"));
   }
-  let button = iframe.contentWindow.document.createElement("button");
-  iframe.contentWindow.document.body.appendChild(button);
-  button.type = "button";
-  button.style.width = "50px";
-  button.style.height = "50px";
-  button.style.backgroundColor = "blue";
-  // button.style.position = "fixed";
-  // button.style.bottom = "10px";
-  // button.style.right = "10px";
-  button.onclick = () => { iframe.parentNode.removeChild(iframe) }
+  createButton(
+        "iframe__close-button", 
+        "iframe__close-button", 
+        iframe.contentWindow.document, 
+        () => { iframe.parentNode.removeChild(iframe) },
+        "Close");
+  completeIframe();
+  injectStylesForChildDocument();
 }
-function createIframe(iframeID = "") {
-  let iframe = document.createElement("iframe");
-  iframe.id = iframeID;
-  iframe.style = "width: 80%;position: fixed;left: 10%;top: 10%;z-index: 10000;background-color: white;height: 80%;";
-  document.body.appendChild(iframe);
-  return iframe;
-}
-function createTable(tableHeaders = []) {
-  let table = document.createElement("table");
-  let tr = document.createElement("tr");
-  table.appendChild(tr);
-  for (let i = 0; i < tableHeaders.length; i++) {
-    let th = document.createElement("th");
-    let text = document.createTextNode(tableHeaders[i]);
-    tr.appendChild(th);
-    th.appendChild(text);
-  }
-  return table;
-}
+
 function appendadUnitInfoIntoTable(table, adUnit, adUnitPath) {
   let tr = document.createElement("tr")
   table.appendChild(tr);
@@ -97,16 +66,7 @@ function appendadUnitInfoIntoTable(table, adUnit, adUnitPath) {
   let bidders = new Set();
   for (let i = 0; i < adUnit.bids.length; i++) {
     if (adUnit.bids[i].params.size !== undefined) {
-      console.log(adUnit.bids[i].params.size);
-      if (Array.isArray(adUnit.bids[i].params.size)) {
-        if (adUnit.bids[i].params.size.length === 1) {
-          sizesSet.add(adUnit.bids[i].params.size[0][0] + "x" + adUnit.bids[i].params.size[0][1]);
-        } else if (adUnit.bids[i].params.size.length === 2) {
-          sizesSet.add(adUnit.bids[i].params.size[0] + "x" + adUnit.bids[i].params.size[1]);
-        }
-      } else {
-        sizesSet.add(adUnit.bids[i].params.size);
-      }
+      sizesSet.add(getAdUnitBidSize(adUnit.bids[i]))
     }
     bidders.add(adUnit.bids[i].bidder);
   }
@@ -154,28 +114,49 @@ function appendBiddersInfoIntoTable(table, bidder) {
   return table;
 }
 
-function getAdUnitPathDictionary(GPTSlots=[]){
-  let AdUnitPathDictionary={};
-  for(let i=0;i<GPTSlots.length;i++){
-    let id=GPTSlots[i].getSlotId();
-    if(Object.prototype.toString.call(id) === "[object Object]"){
-      id=GPTSlots[i].getSlotId().getDomId();
+function getAdUnitPathDictionary(GPTSlots = []) {
+  let AdUnitPathDictionary = {};
+  for (let i = 0; i < GPTSlots.length; i++) {
+    let id = GPTSlots[i].getSlotId();
+    if (Object.prototype.toString.call(id) === "[object Object]") {
+      id = GPTSlots[i].getSlotId().getDomId();
     }
-    AdUnitPathDictionary[id]=GPTSlots[i].getAdUnitPath();
+    AdUnitPathDictionary[id] = GPTSlots[i].getAdUnitPath();
   }
   return AdUnitPathDictionary;
 }
-const { fetch: originalFetch } = window;
-window.fetch = async (...args) => {
-    let [resource, config ] = args;
-    config.method="POST";
-    config.body=resource;
-    // request interceptor starts
-    resource = 'http://127.0.0.1:3000/';
-    // request interceptor ends
-    config.mode="no-cors";
-    const response = await originalFetch(resource, config);
 
-    // response interceptor here
-    return response;
-};
+function getAdUnitBidSize(bid){
+  if (Array.isArray(bid.params.size)) {
+    if (bid.params.size.length === 1) {
+      return (bid.params.size[0][0] + "x" + bid.params.size[0][1]);
+    } else if (bid.params.size.length === 2) {
+      return (bid.params.size[0] + "x" + bid.params.size[1]);
+    }
+  } else {
+    return (bid.params.size);
+  }
+}
+function completeIframe(){
+  let iframe=document.getElementById("iframe__header-bidding-analisys");
+  let header=document.createElement("h1");
+  iframe.contentWindow.document.body.prepend(header);
+  header.className="iframe__header";
+  header.innerText="Header bidding analisys";
+  
+  let headerTable1=document.createElement("h2");
+  header.after(headerTable1);
+  headerTable1.className="iframe__table-header";
+  headerTable1.innerText="Ad units` configuration";
+  
+
+  let headerTable2=document.createElement("h2");
+  let table=iframe.contentWindow.document.getElementById("iframe__ad-units-table");
+  if(table!==null){
+    table.after(headerTable2);
+  }else{
+    headerTable1.after(headerTable2);
+  }
+  headerTable2.className="iframe__table-header";
+  headerTable2.innerText="SSP list";
+}
